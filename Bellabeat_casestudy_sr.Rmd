@@ -1,0 +1,269 @@
+---
+title: "Bellbeat-A Case Study"
+author: "Shashwat Raina"
+date: "31/03/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Introduction
+**COMPANY NAME** : Bellabeat <br>  
+**WHAT IT DOES** : Manufactures High-Tech health-focused products for women.<br>  
+**SCENARIO**     : I'm a junior Data Analyst working on Marketing Analyst Team at Bellabeat.
+                   I have been asked to focus on one of Bellabeat’s products and analyze smart device                      data to gain insight into how consumers are using their smart devices. The insights                     that I discover will help in guiding the marketing strategy for the company. <br>
+                   <br>
+
+### Business Task 
+Analyze smart fitness device data to gain insights into how consumers use these devices for their well being. The insights will be used to guide the marketing strategy of the company. And based on the analysis, high level recommendations must be given for Bellabeat's Marketing Strategy. <br>
+<br>
+
+### Stakeholders <br>
+The Key Stakeholder are : <br>
+* **Urška Sršen**, Bellabeat Co-founder and Chief Creative officer  
+* **Ando Mur**, Mathematician and Bellabeat’s cofounder  
+* Bellabeat marketing analytics team 
+
+### Packages 
+```{r loading packages, echo=TRUE, message=FALSE, warning=FALSE}
+#Importing required libraries 
+library(tidyverse)
+library(lubridate)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+```
+### Importing Data
+```{r importing data}
+Activity <- read.csv("~/Downloads/Fitabase Data 4.12.16-5.12.16/dailyActivity_merged.csv") 
+View(Activity)
+
+Calories <- read.csv("~/Downloads/Fitabase Data 4.12.16-5.12.16/hourlyCalories_merged.csv")
+View(Calories)
+
+hourly_Intensities <- read.csv("~/Downloads/Fitabase Data 4.12.16-5.12.16/hourlyIntensities_merged.csv")
+View(hourly_Intensities)
+ 
+sleep <- read.csv("~/Downloads/Fitabase Data 4.12.16-5.12.16/sleepDay_merged.csv")
+View(sleep)
+
+weight_LogInfo <- read.csv("~/Downloads/Fitabase Data 4.12.16-5.12.16/weightLogInfo_merged.csv")
+View(weight_LogInfo)
+```
+To have an overview and check whether data was imported correctly, we use head() function
+```{r}
+head(Activity)
+```
+Now, we must fix formatting of data frames to make it suitable for our use.
+```{r}
+#formatting 
+
+#daily intensities data
+hourly_Intensities$ActivityHour=as.POSIXct(hourly_Intensities$ActivityHour, format="%m/%d/%Y %I:%M:%S %p", tz=Sys.timezone())
+hourly_Intensities$date <- format(hourly_Intensities$ActivityHour, format = "%m/%d/%y")
+hourly_Intensities$time <- format(hourly_Intensities$ActivityHour, format = "%H:%M:%S")
+
+#daily calories data 
+Calories$ActivityHour=as.POSIXct(Calories$ActivityHour, format="%m/%d/%Y %I:%M:%S %p", tz=Sys.timezone())
+Calories$time <- format(Calories$ActivityHour, format = "%H:%M:%S")
+Calories$date <- format(Calories$ActivityHour, format = "%m/%d/%y")
+
+#daily activity data
+Activity$ActivityDate=as.POSIXct(Activity$ActivityDate, format="%m/%d/%Y", tz=Sys.timezone())
+Activity$date <- format(Activity$ActivityDate, format = "%m/%d/%y")
+
+#sleep data
+sleep$SleepDay=as.POSIXct(sleep$SleepDay, format="%m/%d/%Y %I:%M:%S %p", tz=Sys.timezone())
+sleep$date <- format(sleep$SleepDay, format = "%m/%d/%y")
+```
+
+## Understanding the data 
+**n_distinct** function helps us find the count of unique values of data frames. 
+```{r exploring, echo=TRUE}
+n_distinct(Activity$Id)
+n_distinct(hourly_Intensities$Id)
+n_distinct(Calories$Id)
+n_distinct(sleep$Id)
+n_distinct(weight_LogInfo$Id)
+```
+We get to know the number of participants in each data frames. <br>
+
+* There are *33* participants in Activity, Calories and daily_Intensities data frames,
+  **24** in sleep data frame and only **8** in weight_LogInfo data frame.<br>
+  <br>
+* As there are very few participants in weight_LogInfo  data frame, no significant 
+  recommendation and conclusion can be given. <br>
+
+
+
+
+### Lets have a look at the summaries of the above data frames 
+
+```{r echo=TRUE}
+Activity %>% 
+  select(TotalSteps, TotalDistance, SedentaryMinutes, Calories) %>% 
+  summary()
+
+Activity %>%
+  select(VeryActiveMinutes, FairlyActiveMinutes, LightlyActiveMinutes)%>%
+  summary()
+
+hourly_Intensities %>%
+  select(TotalIntensity)%>%
+  summary()
+
+Calories %>%
+  select(Calories) %>%
+  summary()
+
+sleep %>%
+  select(TotalSleepRecords, TotalMinutesAsleep, TotalTimeInBed) %>%
+  summary()
+
+weight_LogInfo %>%
+  select(WeightKg, BMI) %>%
+  summary()
+```
+
+**We get the following observation from the summaries** :  
+* Average Sedentary time turns out to be 991 minutes which is equal to 16 hours.
+  It should be taken into consideration and must change. <br>
+  <br>
+* The Average sleep time for participants is 7 hours at one time.<br>
+<br>
+* Most of the participants (majority) fall in the category of lightly active. <br>
+<br>
+* On Average, participants covered 7638 steps. The number is less than what CDC 
+  research found to be more accurate for better health benefits.(They found that 
+ taking 8,000 steps per day was associated with a 51% lower risk for all-cause 
+ mortality. Taking 12,000 steps per day was associated with a 65% lower risk)
+
+
+### Merging Data 
+
+In order to make useful visualization, we must merge data as per requirement. 
+Lets merge Activity and sleep data frames on columns Id and date. (inner joint). 
+```{r}
+#Merging Data
+
+data_merged <- merge(sleep, Activity, by=c('Id', 'date'))
+head(data_merged)
+```
+ 
+ 
+### Visualization : To get the insights from the data 
+
+```{r}
+#Total Steps vs Calories graph
+ggplot(data=Activity, aes(x=TotalSteps, y=Calories)) +
+  geom_point() + geom_smooth(method="loess") + labs(title = 'Total Steps Vs Calories Plot')
+```
+
+**Observation** : <br>
+<br>
+It shows the basic relation between Total Steps and Calorie burned. Its shows a 
+straight line and have a +ve relation. 
+
+```{r}
+# Total Minutes Asleep vs. Total Time in Bed Graph 
+
+ggplot(data=sleep, aes(x=TotalMinutesAsleep, y=TotalTimeInBed)) + 
+  geom_point() + geom_smooth(method="loess") + labs(title='Total Minutes Asleep vs. Total Time in Bed Plot')
+
+```
+
+<br>
+**Observations** : 
+<br>
+* The graph clearly shows the direct relation between Total Minutes Asleep and 
+  Total Time in Bed. <br> 
+  <br>
+* To improve the sleep, Bellabeat App can use the feature of notifications to 
+   remind people people go to sleep. 
+
+
+#### Intensities over time (hourly)
+```{r}
+#Intensities Data
+
+int_new <- hourly_Intensities %>%
+  group_by(time) %>%
+  drop_na() %>%
+  summarise(mean_total_int = mean(TotalIntensity))
+
+ggplot(data=int_new, aes(x=time, y=mean_total_int)) + geom_histogram(stat = "identity", fill='orange') +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs(title="Average Total Intensity vs. Time Plot")
+```
+
+<br>
+**Observations** :<br>  
+* The graph shows that people are more active between 5 am and 10 pm.<br>    
+* The busiest time when people are most active is between 5 pm and 7 pm. This is 
+  true because people returning from the office. After returning from the office, 
+  they go to gym or for a walk.  
+
+<br><br>
+
+#### Let's look at the relationship between Total Minutes Asleep and Sedentry Minutes.
+```{r}
+#Merged data (sleep and activity)
+
+ggplot(data=data_merged, aes(x=TotalMinutesAsleep, y=SedentaryMinutes)) +
+  geom_point(color='red') + geom_smooth(color='darkblue',method="loess") + 
+  labs(title="Total Minutes Asleep Vs Sedentary Minutes Plot")
+```
+
+<br>
+**Observations** :  <br>
+* The graph shows the -ve relationship between Sedentary Minutes and Sleep time.<br>
+* Bellabeat can enable user to get reminded about reducing their sedentary time, 
+  to improve their sleep.
+<br><br>
+## Conclusion & Recommendations 
+
+We analyzed Fitbit Fitness Tracker Data which helped us gain various insights. 
+These insight will help us
+Bellabeat's marketing strategy. 
+This will also help Bellabeat empower women with knowledge about their own health 
+and habits. 
+
+#### Target Audience <br>
+The key target audience are the women with full time jobs and who spend lot of 
+time on computer. 
+
+#### Recommendations <br>
+
+* People who target to loose weight must be encouraged to control and maintain 
+  their daily calorie consumption. Bellabeat App can do that by having the record 
+  of their user's calorie intake. And based on that, give suggestions to the 
+  specific users.<br> 
+<br>
+* Bellbeat should use the feature of notifications for People facing sleeping problems. 
+  The notification can include poistive messages or basic things to remember before 
+  going to sleep. They can also suggest users to reduce sedentary time to improve 
+  their sleep<br>
+<br>
+* Focus of Bellabeat's online campaign : <br>
+
+  The Bellabeat app is not just fitness activity app. Its a 'guide' who empowers 
+  women to balance between personal and professional life. And top of that, encourage 
+  them to inculcate healthy habits and routines Bellabeat can do that by educating 
+  them through daily 
+  app reminders, guides, e-mails, workshops etc.<br>
+* We should also connect with our users through social media.(Facebook, Instagram etc) <br>
+  <br>
+* People who are covering steps less than what is recommended by CDC research, 
+ must be encouraged by Bellabeat to complete the recommended 8000 steps. 
+ Bellabeat can do that by giving them steps challenges and explaining users 
+ about its health benefits.  <br>
+<br>
+<br>
+
+
+
+                     --- The End --- 
+
+
+
